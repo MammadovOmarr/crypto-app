@@ -1,0 +1,262 @@
+<!-- This is your current index.html but renamed to crypto_price.html -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Crypto Price Tracker</title>
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+    />
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body {
+        background-color: #e6f7f9;
+        color: #000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        transition: background-color 0.5s, color 0.5s;
+      }
+      .container {
+        width: 100%;
+        max-width: 1200px;
+      }
+      #chart-container {
+        width: 1000px;
+        height: 100%;
+        margin-bottom: 30px;
+      }
+      .dark-mode {
+        background-color: #121212;
+        color: #fff;
+      }
+      .btn-container {
+        display: flex;
+        flex-direction: row;
+        justify-content:space-around;
+        margin-bottom: 50px;
+        width: 600px;
+        margin-left: 220px;
+      }
+
+      .btn-primary,.btn-success{
+        height: 50px;
+        align-self: center;
+        font-size: 1.3rem;
+      }
+      .buttons{
+        display:flex;
+        flex-direction:column;
+        gap:50px;
+        margin: 0 20px;
+      }
+
+      .btn-secondary {
+        background-color: #c92a2a;
+        border-color: #c92a2a;
+        padding: .5rem 1rem;
+        font-size: 1.3rem;
+      }
+
+      .percentage-change {
+        font-size: 1.2em;
+        font-weight: bold;
+      }
+      .opsi{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+      }
+
+      .lead,.percentage-change{
+        margin-left: -150px;
+        text-align: center;
+      }
+      .lead{
+        font-size: 2.5rem;
+        font-weight: bold;
+      }
+      .percentage-change{
+        font-size: 2em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container mt-5">
+      <p class="lead">
+        Current <span id="crypto-name">Bitcoin</span> Price (USD):
+        <span id="current-price">$...</span>
+      </p>
+      <p class="percentage-change" id="crypto-change">Loading...</p>
+      <div class="opsi">
+        <div id="chart-container">
+          <canvas id="priceChart" ></canvas>
+        </div>
+        <div class = "buttons">
+          <button class="btn btn-secondary" id="toggle-crypto">
+            Ethereum
+          </button>
+          <button class="btn btn-secondary" id="toggle-crypto2">
+            Bitcoin
+          </button>
+          <button class="btn btn-secondary" id="toggle-crypto3">
+            Solana
+          </button>
+        </div>
+      </div>
+      <div class="btn-container">
+        <button class="btn btn-primary" id="toggle-dark-mode">
+          Enable Dark Mode
+        </button>
+        <button class="btn btn-success" id="download-csv">Download CSV</button>
+      </div>
+    </div>
+    <script>
+      let currentCrypto = "bitcoin"; // Default cryptocurrency
+      const ctx = document.getElementById("priceChart").getContext("2d");
+      let priceChart = createChart();
+
+      // Function to convert chart data to CSV format
+      function downloadCSV() {
+        const labels = priceChart.data.labels;
+        const data = priceChart.data.datasets[0].data;
+
+        // Prepare CSV content
+        let csvContent = "Time,Price (USD)\n";
+        for (let i = 0; i < labels.length; i++) {
+          csvContent += `${labels[i]},${data[i]}\n`;
+        }
+
+        // Create a Blob with CSV content and trigger download
+        const blob = new Blob([csvContent], {
+          type: "text/csv;charset=utf-8;",
+        });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `${currentCrypto}_price_data.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      // Bind the CSV download function to the button
+      $(document).ready(function () {
+        $("#download-csv").on("click", downloadCSV);
+      });
+
+      function createChart() {
+        return new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: `Price (USD)`,
+                data: [],
+                borderColor: "rgba(75, 192, 192, 1)",
+                backgroundColor: "rgba(75, 192, 192, 0.2)",
+                fill: true,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            scales: {
+              x: { title: { display: true, text: "Time" } },
+              y: { title: { display: true, text: "Price (USD)" } },
+            },
+          },
+        });
+      }
+
+      function fetchPrice() {
+        $.getJSON(`/api/price/${currentCrypto}`, function (data) {
+          const time = data.timestamp;
+          const price = data.price_usd.toFixed(2);
+          $("#current-price").text("$" + price);
+
+          if (priceChart.data.labels.length > 20) {
+            priceChart.data.labels.shift();
+            priceChart.data.datasets[0].data.shift();
+          }
+          priceChart.data.labels.push(time);
+          priceChart.data.datasets[0].data.push(price);
+          priceChart.update();
+
+          $(`#crypto-change`).text(data.price_usd.toFixed(2));
+            const changeElement = $(`#crypto-change`);
+            changeElement.text(`${data.percentage_change.toFixed(2)}%`);
+            if (data.percentage_change >= 0) {
+              changeElement.css("color", "green");
+            } else {
+              changeElement.css("color", "red");
+            }
+        });
+
+      }
+
+      function toggleCrypto() {
+        currentCrypto = "ethereum";
+        $("#crypto-name").text("Ethereum");
+        // Reset the chart
+        fetchPrice();
+        priceChart.destroy();
+        priceChart = createChart();
+      }
+
+      function toggleCrypto2() {
+        currentCrypto = "bitcoin";
+        $("#crypto-name").text("Bitcoin");
+        // Reset the chart
+        fetchPrice();
+        priceChart.destroy();
+        priceChart = createChart();
+      }
+
+      function toggleCrypto3() {
+        currentCrypto = "solana";
+        $("#crypto-name").text("Solana");
+        // Reset the chart
+        fetchPrice();
+        priceChart.destroy();
+        priceChart = createChart();
+      }
+
+      function toggleDarkMode() {
+        $("body").toggleClass("dark-mode");
+
+        if ($("body").hasClass("dark-mode")) {
+          $("#toggle-dark-mode").text("Enable Light Mode");
+          priceChart.options.scales.x.grid.color = "#555";
+          priceChart.options.scales.y.grid.color = "#555";
+          priceChart.data.datasets[0].borderColor = "rgba(0, 255, 255, 1)";
+          priceChart.data.datasets[0].backgroundColor =
+            "rgba(0, 255, 255, 0.2)";
+        } else {
+          $("#toggle-dark-mode").text("Enable Dark Mode");
+          priceChart.options.scales.x.grid.color = "#ccc";
+          priceChart.options.scales.y.grid.color = "#ccc";
+          priceChart.data.datasets[0].borderColor = "rgba(75, 192, 192, 1)";
+          priceChart.data.datasets[0].backgroundColor =
+            "rgba(75, 192, 192, 0.2)";
+        }
+        priceChart.update();
+      }
+
+      $(document).ready(function () {
+        fetchPrice();
+        setInterval(fetchPrice, 5000);
+        $("#toggle-dark-mode").on("click", toggleDarkMode);
+        $("#toggle-crypto").on("click", toggleCrypto);
+        $("#toggle-crypto2").on("click", toggleCrypto2);
+        $("#toggle-crypto3").on("click", toggleCrypto3);
+      });
+    </script>
+  </body>
+</html>
